@@ -12,11 +12,13 @@ app.use(cors())
 app.use(bodyParser.json())
 
 const db = mysql.createConnection({
-  host: "localhost",
-  user: "root",
-  password: "",
-  database: "padsi",
-})
+  host: process.env.DB_CONNECTION_STRING,
+  user: process.env.DB_USER, 
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_DATABASE, 
+});
+
+const secretKey = process.env.SECRET_KEY
 
 db.connect((err) => {
   if (err) {
@@ -25,9 +27,6 @@ db.connect((err) => {
     console.log("Connected to MySQL database")
   }
 })
-
-const secretKey = process.env.SECRET_KEY
-const dbConnectionString = process.env.DB_CONNECTION_STRING
 
 app.get("/", (req, res) => {
   res.send("Server is running!")
@@ -71,7 +70,7 @@ app.post("/login", (req, res) => {
           firstname: result[0].firstname,
           lastname: result[0].lastname,
         }
-        const token = jwt.sign(user, secretKey, { expiresIn: "5s" })
+        const token = jwt.sign(user, secretKey, { expiresIn: "24h" })
 
         res.status(200).json({ message: "Login successful", token })
       } else {
@@ -453,43 +452,65 @@ app.get("/customers", (req, res) => {
 })
 
 app.post("/add-customer", (req, res) => {
-  const { name, email, phone } = req.body
+  const { name, email, phone } = req.body;
 
-  const sql = "INSERT INTO customers (name, email, phone) VALUES (?, ?, ?)"
-  db.query(sql, [name, email, phone], (err, result) => {
+  const checkExistingCustomerSql = "SELECT * FROM customers WHERE name = ? OR email = ? OR phone = ?";
+  db.query(checkExistingCustomerSql, [name, email, phone], (err, result) => {
     if (err) {
-      console.error("Error adding customer:", err)
-      res.status(500).json({ error: "Internal Server Error" })
+      console.error("Error checking existing customer:", err);
+      res.status(500).json({ error: "Internal Server Error" });
     } else {
-      res.status(200).json({ message: "Customer added successfully" })
-    }
-  })
-})
-
-app.put("/update-customer/:id", (req, res) => {
-  const { id } = req.params
-  const { name, email, phone } = req.body
-
-  const sql =
-    "UPDATE customers SET name = ?, email = ?, phone = ? WHERE id_customers = ?"
-  db.query(sql, [name, email, phone, id], (err, result) => {
-    if (err) {
-      console.error("Error updating customer:", err)
-      res.status(500).json({ error: "Internal Server Error" })
-    } else {
-      if (result.affectedRows > 0) {
-        res.status(200).json({ message: "Customer updated successfully" })
+      if (result && result.length > 0) {
+        res.status(400).json({ error: "Customer with the same name, email, or phone already exists" });
       } else {
-        res.status(404).json({ error: "Customer not found" })
+        const insertCustomerSql = "INSERT INTO customers (name, email, phone) VALUES (?, ?, ?)";
+        db.query(insertCustomerSql, [name, email, phone], (err, result) => {
+          if (err) {
+            console.error("Error adding customer:", err);
+            res.status(500).json({ error: "Internal Server Error" });
+          } else {
+            res.status(200).json({ message: "Customer added successfully" });
+          }
+        });
       }
     }
-  })
-})
+  });
+});
+
+app.put("/update-customer/:id", (req, res) => {
+  const { id } = req.params;
+  const { name, email, phone } = req.body;
+
+  const checkExistingQuery = "SELECT * FROM customers WHERE (name =? OR email = ? OR phone = ?) AND id_customers != ?";
+  db.query(checkExistingQuery, [name, email, phone, id], (checkErr, checkResult) => {
+    if (checkErr) {
+      console.error("Error checking existing customer:", checkErr);
+      res.status(500).json({ error: "Internal Server Error" });
+    } else if (checkResult.length > 0) {
+      res.status(400).json({ error: "Name or email or phone number already exists in the database" });
+    } else {
+      const updateQuery = "UPDATE customers SET name = ?, email = ?, phone = ? WHERE id_customers = ?";
+      db.query(updateQuery, [name, email, phone, id], (err, result) => {
+        if (err) {
+          console.error("Error updating customer:", err);
+          res.status(500).json({ error: "Internal Server Error" });
+        } else {
+          if (result.affectedRows > 0) {
+            res.status(200).json({ message: "Customer updated successfully" });
+          } else {
+            res.status(404).json({ error: "Customer not found" });
+          }
+        }
+      });
+    }
+  });
+});
+
 
 app.delete("/delete-customer/:id", (req, res) => {
   const { id } = req.params
 
-  const sql = "DELETE FROM customers WHERE id_transactions = ?"
+  const sql = "DELETE FROM customers WHERE id_customers = ?"
   db.query(sql, [id], (err, result) => {
     if (err) {
       console.error("Error deleting customer:", err)
@@ -518,45 +539,105 @@ app.get("/users", (req, res) => {
 })
 
 app.post("/add-user", (req, res) => {
-  const { firstname, lastname, username, password, role } = req.body
+  const { firstname, lastname, username, password, role } = req.body;
 
-  const userRole = role || "Employee"
-
-  const sql =
-    "INSERT INTO users (firstname, lastname, username, password, role) VALUES (?, ?, ?, ?, ?)"
+  const sqlCheckExisting =
+    "SELECT * FROM users WHERE (firstname = ? AND lastname = ?) OR username = ?";
   db.query(
-    sql,
-    [firstname, lastname, username, password, userRole],
-    (err, result) => {
+    sqlCheckExisting,
+    [firstname, lastname, username],
+    (err, results) => {
       if (err) {
-        console.error("Error adding customer:", err)
-        res.status(500).json({ error: "Internal Server Error" })
+        console.error("Error checking for existing user:", err);
+        res.status(500).json({ error: "Internal Server Error" });
+      } else if (results.length > 0) {
+        res.status(400).json({
+          error: "A user with similar data already exists",
+        });
       } else {
-        res.status(200).json({ message: "Customer added successfully" })
+        const sqlCheckUsername = "SELECT * FROM users WHERE username = ?";
+        db.query(sqlCheckUsername, [username], (err, usernameResults) => {
+          if (err) {
+            console.error("Error checking for existing username:", err);
+            res.status(500).json({ error: "Internal Server Error" });
+          } else if (usernameResults.length > 0) {
+            res.status(400).json({
+              error: "Username already exists",
+            });
+          } else {
+            const userRole = role || "Employee";
+            const sql =
+              "INSERT INTO users (firstname, lastname, username, password, role) VALUES (?, ?, ?, ?, ?)";
+            db.query(
+              sql,
+              [firstname, lastname, username, password, userRole],
+              (err, result) => {
+                if (err) {
+                  console.error("Error adding user:", err);
+                  res.status(500).json({ error: "Internal Server Error" });
+                } else {
+                  res.status(200).json({ message: "User added successfully" });
+                }
+              }
+            );
+          }
+        });
       }
     }
-  )
-})
+  );
+});
+
 
 app.put("/update-user/:id", (req, res) => {
-  const { id } = req.params
-  const { firstname, lastname, username, role } = req.body
+  const { id } = req.params;
+  const { firstname, lastname, username, role } = req.body;
 
-  const sql =
-    "UPDATE users SET firstname = ?, lastname = ?, username = ?, role = ? WHERE id_users = ?"
-  db.query(sql, [firstname, lastname, username, role, id], (err, result) => {
-    if (err) {
-      console.error("Error updating customer:", err)
-      res.status(500).json({ error: "Internal Server Error" })
-    } else {
-      if (result.affectedRows > 0) {
-        res.status(200).json({ message: "Customer updated successfully" })
+  const sqlCheckExisting =
+    "SELECT * FROM users WHERE (firstname = ? AND lastname = ?) OR username = ?";
+  db.query(
+    sqlCheckExisting,
+    [firstname, lastname, username],
+    (err, results) => {
+      if (err) {
+        console.error("Error checking for existing user:", err);
+        res.status(500).json({ error: "Internal Server Error" });
+      } else if (results.length > 0) {
+        const existingUser = results.find((user) => user.id !== id);
+        if (existingUser) {
+          res.status(400).json({
+            error: "A user with similar data already exists",
+          });
+        } else {
+          updateUser();
+        }
       } else {
-        res.status(404).json({ error: "Customer not found" })
+        updateUser();
       }
     }
-  })
-})
+  );
+
+  const updateUser = () => {
+    const sql =
+      "UPDATE users SET firstname = ?, lastname = ?, username = ?, role = ? WHERE id_users = ?";
+    db.query(
+      sql,
+      [firstname, lastname, username, role, id],
+      (err, result) => {
+        if (err) {
+          console.error("Error updating user:", err);
+          res.status(500).json({ error: "Internal Server Error" });
+        } else {
+          if (result.affectedRows > 0) {
+            res.status(200).json({ message: "User updated successfully" });
+          } else {
+            res.status(404).json({ error: "User not found" });
+          }
+        }
+      }
+    );
+  };
+});
+
 
 app.delete("/delete-user/:id", (req, res) => {
   const { id } = req.params
@@ -651,8 +732,6 @@ app.put("/update-products/:id", (req, res) => {
     }
   });
 });
-
-
 
 app.delete("/delete-products/:id", (req, res) => {
   const productId = req.params.id;
