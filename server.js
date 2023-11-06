@@ -109,7 +109,13 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
-app.use(authenticateToken);
+app.use((req, res, next) => {
+  if (req.path === "/register" || req.path === "/login") {
+    next();
+  } else {
+    authenticateToken(req, res, next);
+  }
+});
 
 const allowRoles = (allowedRoles) => {
   return (req, res, next) => {
