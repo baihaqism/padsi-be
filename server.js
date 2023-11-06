@@ -11,12 +11,12 @@ const port = process.env.PORT || 5500;
 app.use(cors());
 app.use(bodyParser.json());
 
-// const db = mysql.createConnection({
-//   host: process.env.DB_CONNECTION_STRING,
-//   user: process.env.DB_USER,
-//   password: process.env.DB_PASSWORD,
-//   database: process.env.DB_DATABASE,
-// });
+const db = mysql.createConnection({
+  host: process.env.DB_CONNECTION_STRING,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_DATABASE,
+});
 
 const secretKey = process.env.SECRET_KEY;
 
@@ -29,7 +29,7 @@ db.connect((err) => {
 });
 
 app.listen(port, () => {
-  console.log(`Server running at port http://localhost:${port}!`)
+  console.log(`Server running at port http://localhost:${port}!`);
 });
 
 app.get("/", (req, res) => {
