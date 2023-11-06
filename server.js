@@ -6,7 +6,7 @@ const jwt = require("jsonwebtoken");
 require("dotenv").config();
 
 const app = express();
-const port = process.env.MYSQLPORT || 59881;
+const port = process.env.MYSQLPORT;
 
 app.use(cors());
 app.use(bodyParser.json());
