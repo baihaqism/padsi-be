@@ -1082,6 +1082,6 @@ app.delete("/delete-service/:id_service", allowRoles(["Admin"]), (req, res) => {
   });
 });
 
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+app.listen(port, () => {
+  console.log(`Server is running on port ${port}`);
 });
