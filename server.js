@@ -110,7 +110,7 @@ const authenticateToken = (req, res, next) => {
 };
 
 app.use((req, res, next) => {
-  if (req.path === "/register" || req.path === "/login") {
+  if (req.path === "/register" || req.path === "/login" || req.path === "/") {
     next();
   } else {
     authenticateToken(req, res, next);
