@@ -6,7 +6,7 @@ const jwt = require("jsonwebtoken");
 require("dotenv").config();
 
 const app = express();
-const port = process.env.MYSQLPORT;
+const port = process.env.PORT;
 
 app.use(cors());
 app.use(bodyParser.json());
@@ -26,10 +26,6 @@ db.connect((err) => {
   } else {
     console.log("Connected to MySQL database");
   }
-});
-
-app.listen(port, () => {
-  console.log(`Server running at port http://localhost:${port}!`);
 });
 
 app.get("/", (req, res) => {
@@ -1083,5 +1079,5 @@ app.delete("/delete-service/:id_service", allowRoles(["Admin"]), (req, res) => {
 });
 
 app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
+  console.log(`Server running at port http://localhost:${port}!`);
 });
