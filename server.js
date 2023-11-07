@@ -6,7 +6,7 @@ const jwt = require("jsonwebtoken");
 require("dotenv").config();
 
 const app = express();
-const port = process.env.PORT;
+//const port = process.env.PORT;
 
 app.use(cors());
 app.use(bodyParser.json());
@@ -16,6 +16,7 @@ const db = mysql.createConnection({
   user: process.env.MYSQLUSER,
   password: process.env.MYSQLPASSWORD,
   database: process.env.MYSQLDATABASE,
+  port: process.env.MYSQLPORT
 });
 
 const secretKey = process.env.SECRET_KEY;
