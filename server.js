@@ -6,7 +6,7 @@ const jwt = require("jsonwebtoken");
 require("dotenv").config();
 
 const app = express();
-//const port = process.env.PORT;
+const port = process.env.PORT;
 
 app.use(cors());
 app.use(bodyParser.json());
